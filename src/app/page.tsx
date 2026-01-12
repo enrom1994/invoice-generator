@@ -78,7 +78,7 @@ export default function Home() {
         id: item.id === 'initial-item' ? generateId() : item.id,
       })),
     }));
-  }, []);
+  }, [loadAutoSave, hasAutoSave]);
 
   // Handle draft save
   const handleSaveDraft = () => {
@@ -126,8 +126,6 @@ export default function Home() {
               <DownloadPDFButton
                 invoiceRef={invoiceRef}
                 invoiceData={invoiceData}
-                isUnlocked={isUnlocked}
-                onUnlock={unlock}
                 logoUrl={logoUrl}
               />
             </div>
@@ -167,7 +165,7 @@ export default function Home() {
             <InvoiceForm
               data={invoiceData}
               onChange={setInvoiceData}
-              isUnlocked={isUnlocked}
+
               logoUrl={logoUrl}
               onLogoChange={saveLogo}
               onLogoRemove={removeLogo}
