@@ -31,17 +31,18 @@ export default function DraftManager({
     };
 
     return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
             {/* Save Draft Button */}
             <button
                 type="button"
                 onClick={onSave}
-                className="px-3 py-1.5 text-sm font-medium text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                className="p-2 sm:px-3 sm:py-1.5 text-sm font-medium text-emerald-600 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-1"
+                title="Save Draft"
             >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                 </svg>
-                Save Draft
+                <span className="hidden sm:inline">Save Draft</span>
             </button>
 
             {/* Load Draft Dropdown */}
@@ -50,16 +51,17 @@ export default function DraftManager({
                     type="button"
                     onClick={() => setShowDropdown(!showDropdown)}
                     disabled={drafts.length === 0}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${drafts.length > 0
-                            ? 'text-gray-600 bg-gray-100 hover:bg-gray-200'
-                            : 'text-gray-400 bg-gray-50 cursor-not-allowed'
+                    className={`p-2 sm:px-3 sm:py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${drafts.length > 0
+                        ? 'text-gray-600 bg-gray-100 hover:bg-gray-200'
+                        : 'text-gray-400 bg-gray-50 cursor-not-allowed'
                         }`}
+                    title={`Load Draft (${drafts.length})`}
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
-                    Load ({drafts.length})
-                    <span className="text-gray-400">▼</span>
+                    <span className="hidden sm:inline">Load ({drafts.length})</span>
+                    <span className="hidden sm:inline text-gray-400">▼</span>
                 </button>
 
                 {showDropdown && drafts.length > 0 && (
@@ -105,10 +107,10 @@ export default function DraftManager({
                 )}
             </div>
 
-            {/* Auto-save indicator */}
-            <span className="text-xs text-gray-400 flex items-center gap-1">
+            {/* Auto-save indicator - only green dot on mobile */}
+            <span className="text-xs text-gray-400 flex items-center gap-1" title="Auto-saving enabled">
                 <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                Auto-saving
+                <span className="hidden sm:inline">Auto-saving</span>
             </span>
         </div>
     );
