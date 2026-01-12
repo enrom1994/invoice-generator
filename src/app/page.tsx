@@ -17,6 +17,7 @@ import { useDrafts, useAutoSave } from '@/hooks/useDrafts';
 const initialData: InvoiceData = {
   documentType: 'invoice',
   template: 'modern',
+  paymentMethod: 'eft',
   freelancerName: '',
   freelancerEmail: '',
   freelancerPhone: '',

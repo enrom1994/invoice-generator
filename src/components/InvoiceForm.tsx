@@ -4,6 +4,7 @@ import { InvoiceData, SavedClient, TemplateType } from '@/types/invoice';
 import LineItems from './LineItems';
 import LogoUpload from './LogoUpload';
 import DocumentTypeToggle from './DocumentTypeToggle';
+import PaymentMethodToggle from './PaymentMethodToggle';
 import TemplateSelector from './TemplateSelector';
 import ClientSelector from './ClientSelector';
 import PaymentTermsSelector from './PaymentTermsSelector';
@@ -62,6 +63,15 @@ export default function InvoiceForm({
                         <DocumentTypeToggle
                             value={data.documentType}
                             onChange={(value) => updateField('documentType', value)}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Payment Method
+                        </label>
+                        <PaymentMethodToggle
+                            value={data.paymentMethod}
+                            onChange={(value) => updateField('paymentMethod', value)}
                         />
                     </div>
                     <TemplateSelector
@@ -141,62 +151,64 @@ export default function InvoiceForm({
                     </div>
                 </div>
 
-                {/* Bank Details */}
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                    <h3 className="text-sm font-semibold text-gray-600 mb-3">Banking Details (Optional)</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Bank Name
-                            </label>
-                            <input
-                                type="text"
-                                value={data.bankName}
-                                onChange={(e) => updateField('bankName', e.target.value)}
-                                placeholder="FNB, Standard Bank, etc."
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Account Number
-                            </label>
-                            <input
-                                type="text"
-                                value={data.accountNumber}
-                                onChange={(e) => updateField('accountNumber', e.target.value)}
-                                placeholder="1234567890"
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Branch Code
-                            </label>
-                            <input
-                                type="text"
-                                value={data.branchCode}
-                                onChange={(e) => updateField('branchCode', e.target.value)}
-                                placeholder="250655"
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Account Type
-                            </label>
-                            <select
-                                value={data.accountType || ''}
-                                onChange={(e) => updateField('accountType', e.target.value as 'cheque' | 'savings' | '')}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                            >
-                                <option value="">Select...</option>
-                                <option value="cheque">Cheque</option>
-                                <option value="savings">Savings</option>
-                            </select>
+                {/* Bank Details - Only show for EFT payments */}
+                {data.paymentMethod !== 'cash' && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                        <h3 className="text-sm font-semibold text-gray-600 mb-3">Banking Details (Optional)</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Bank Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={data.bankName}
+                                    onChange={(e) => updateField('bankName', e.target.value)}
+                                    placeholder="FNB, Standard Bank, etc."
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Account Number
+                                </label>
+                                <input
+                                    type="text"
+                                    value={data.accountNumber}
+                                    onChange={(e) => updateField('accountNumber', e.target.value)}
+                                    placeholder="1234567890"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Branch Code
+                                </label>
+                                <input
+                                    type="text"
+                                    value={data.branchCode}
+                                    onChange={(e) => updateField('branchCode', e.target.value)}
+                                    placeholder="250655"
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Account Type
+                                </label>
+                                <select
+                                    value={data.accountType || ''}
+                                    onChange={(e) => updateField('accountType', e.target.value as 'cheque' | 'savings' | '')}
+                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                >
+                                    <option value="">Select...</option>
+                                    <option value="cheque">Cheque</option>
+                                    <option value="savings">Savings</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* Logo Upload - Always shown */}
                 <LogoUpload

@@ -421,8 +421,8 @@ export default function InvoicePDF({
                     </View>
                 </View>
 
-                {/* Banking Details */}
-                {(data.bankName || data.accountNumber) && (
+                {/* Banking Details - Hide for cash payments */}
+                {data.paymentMethod !== 'cash' && (data.bankName || data.accountNumber) && (
                     <View style={styles.bankSection} wrap={false}>
                         <Text style={styles.sectionLabel}>Banking Details</Text>
                         <View style={styles.bankGrid}>

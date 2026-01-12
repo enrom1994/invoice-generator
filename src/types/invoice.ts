@@ -7,11 +7,13 @@ export interface LineItem {
 
 export type TemplateType = 'modern' | 'classic' | 'minimal';
 export type DocumentType = 'invoice' | 'quotation';
+export type PaymentMethod = 'eft' | 'cash';
 
 export interface InvoiceData {
   // Document settings
   documentType: DocumentType;
   template: TemplateType;
+  paymentMethod: PaymentMethod;
 
   // Freelancer details
   freelancerName: string;

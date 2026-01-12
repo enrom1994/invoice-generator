@@ -233,8 +233,8 @@ const InvoicePreview = forwardRef<HTMLDivElement, InvoicePreviewProps>(
                         </div>
                     </div>
 
-                    {/* Bank Details */}
-                    {(data.bankName || data.accountNumber) && (
+                    {/* Bank Details - Hide for cash payments */}
+                    {data.paymentMethod !== 'cash' && (data.bankName || data.accountNumber) && (
                         <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: `1px solid ${colors.gray200}` }}>
                             <h3 style={{ fontSize: '12px', fontWeight: '600', color: colors.gray400, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
                                 Banking Details
