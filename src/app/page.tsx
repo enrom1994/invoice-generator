@@ -1,65 +1,212 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import InvoiceForm from '@/components/InvoiceForm';
+import InvoicePreview from '@/components/InvoicePreview';
+import DownloadPDFButton from '@/components/DownloadPDFButton';
+import DraftManager from '@/components/DraftManager';
+import ShareButtons from '@/components/ShareButtons';
+import { InvoiceData, InvoiceDraft } from '@/types/invoice';
+import { generateId, getTodayDate, getDueDate } from '@/lib/utils';
+import { useUnlockState, useLogoState } from '@/hooks/useUnlockState';
+import { useClients } from '@/hooks/useClients';
+import { useDrafts, useAutoSave } from '@/hooks/useDrafts';
+
+// Static initial data to avoid hydration mismatch
+// All dynamic values (dates, IDs) are set in useEffect
+const initialData: InvoiceData = {
+  documentType: 'invoice',
+  template: 'modern',
+  freelancerName: '',
+  freelancerEmail: '',
+  freelancerPhone: '',
+  freelancerAddress: '',
+  companyRegistration: '',
+  bankName: '',
+  accountNumber: '',
+  branchCode: '',
+  accountType: '',
+  clientName: '',
+  clientEmail: '',
+  clientAddress: '',
+  invoiceNumber: 'INV-001',
+  invoiceDate: '',
+  dueDate: '',
+  paymentReference: '',
+  includeVAT: false,
+  vatNumber: '',
+  lineItems: [
+    {
+      id: 'initial-item', // Static ID to prevent hydration mismatch
+      description: '',
+      quantity: 1,
+      unitPrice: 0,
+    },
+  ],
+  notes: 'Payment is due within 30 days. Thank you for your business!',
+};
 
 export default function Home() {
+  const [invoiceData, setInvoiceData] = useState<InvoiceData>(initialData);
+  const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
+  const invoiceRef = useRef<HTMLDivElement>(null);
+
+  // Monetization hooks
+  const { isUnlocked, isLoading: unlockLoading, unlock } = useUnlockState();
+  const { logoUrl, saveLogo, removeLogo } = useLogoState();
+
+  // Client & Draft management hooks
+  const { clients, saveClient, deleteClient } = useClients();
+  const { drafts, saveDraft, deleteDraft, loadDraft } = useDrafts();
+  const { loadAutoSave, hasAutoSave } = useAutoSave(invoiceData, true);
+
+  // Set dynamic values on client-side only to avoid hydration mismatch
+  useEffect(() => {
+    // Check for auto-saved data first
+    const autoSaved = loadAutoSave();
+    if (autoSaved && hasAutoSave()) {
+      setInvoiceData(autoSaved);
+      return;
+    }
+
+    setInvoiceData(prev => ({
+      ...prev,
+      invoiceDate: getTodayDate(),
+      dueDate: getDueDate(),
+      lineItems: prev.lineItems.map((item) => ({
+        ...item,
+        id: item.id === 'initial-item' ? generateId() : item.id,
+      })),
+    }));
+  }, []);
+
+  // Handle draft save
+  const handleSaveDraft = () => {
+    const name = prompt('Enter a name for this draft:', `${invoiceData.documentType === 'quotation' ? 'Quote' : 'Invoice'} - ${invoiceData.clientName || 'Unnamed'}`);
+    if (name) {
+      saveDraft(name, invoiceData);
+    }
+  };
+
+  // Handle draft load
+  const handleLoadDraft = (draft: InvoiceDraft) => {
+    setInvoiceData(draft.data);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  🇿🇦 SA Invoice Generator
+                </h1>
+                <p className="text-sm text-gray-500 mt-1">
+                  Free invoice generator for South African freelancers
+                </p>
+              </div>
+              {/* Pro badge */}
+              {isUnlocked && (
+                <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                  PRO
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              <DraftManager
+                drafts={drafts}
+                onLoad={handleLoadDraft}
+                onSave={handleSaveDraft}
+                onDelete={deleteDraft}
+              />
+              <ShareButtons invoiceData={invoiceData} />
+              <DownloadPDFButton
+                invoiceRef={invoiceRef}
+                invoiceData={invoiceData}
+                isUnlocked={isUnlocked}
+                onUnlock={unlock}
+                logoUrl={logoUrl}
+              />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Tabs */}
+      <div className="lg:hidden bg-white border-b border-gray-200">
+        <div className="flex">
+          <button
+            onClick={() => setActiveTab('form')}
+            className={`flex-1 py-3 text-sm font-medium text-center transition-colors ${activeTab === 'form'
+              ? 'text-emerald-600 border-b-2 border-emerald-600'
+              : 'text-gray-500 hover:text-gray-700'
+              }`}
+          >
+            Edit Invoice
+          </button>
+          <button
+            onClick={() => setActiveTab('preview')}
+            className={`flex-1 py-3 text-sm font-medium text-center transition-colors ${activeTab === 'preview'
+              ? 'text-emerald-600 border-b-2 border-emerald-600'
+              : 'text-gray-500 hover:text-gray-700'
+              }`}
+          >
+            Preview
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Form Section */}
+          <div className={`${activeTab === 'preview' ? 'hidden lg:block' : ''}`}>
+            <InvoiceForm
+              data={invoiceData}
+              onChange={setInvoiceData}
+              isUnlocked={isUnlocked}
+              logoUrl={logoUrl}
+              onLogoChange={saveLogo}
+              onLogoRemove={removeLogo}
+              savedClients={clients}
+              onSaveClient={saveClient}
+              onDeleteClient={deleteClient}
+            />
+          </div>
+
+          {/* Preview Section */}
+          <div
+            className={`${activeTab === 'form' ? 'hidden lg:block' : ''
+              } lg:sticky lg:top-24 lg:self-start`}
+          >
+            <div className="mb-4 hidden lg:block">
+              <h2 className="text-lg font-semibold text-gray-700">Live Preview</h2>
+              <p className="text-sm text-gray-500">
+                This is how your invoice will look
+              </p>
+            </div>
+            <InvoicePreview
+              ref={invoiceRef}
+              data={invoiceData}
+              logoUrl={isUnlocked ? logoUrl : null}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <p className="text-center text-sm text-gray-500">
+            Free invoice generator for South African freelancers. No signup required.
+            <br />
+            All data stays in your browser - we never see your invoices.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </footer>
+    </main>
   );
 }
