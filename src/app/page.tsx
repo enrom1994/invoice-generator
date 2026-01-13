@@ -123,7 +123,7 @@ export default function Home() {
                 onSave={handleSaveDraft}
                 onDelete={deleteDraft}
               />
-              <ShareButtons invoiceData={invoiceData} />
+              <ShareButtons invoiceData={invoiceData} logoUrl={logoUrl} />
               <DownloadPDFButton
                 invoiceRef={invoiceRef}
                 invoiceData={invoiceData}
