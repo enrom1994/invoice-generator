@@ -106,7 +106,7 @@ export default function Home() {
                   🇿🇦 SA Invoice Generator
                 </h1>
                 <p className="text-sm text-gray-500 mt-1">
-                  Free invoice generator for South African freelancers
+                  Free invoice generator for South African freelancers & small businesses
                 </p>
               </div>
               {/* Pro badge */}
@@ -202,7 +202,7 @@ export default function Home() {
       <footer className="bg-white border-t border-gray-200 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <p className="text-center text-sm text-gray-500">
-            Free invoice generator for South African freelancers. No signup required.
+            Free invoice generator for South African freelancers & small businesses. No signup required.
             <br />
             All data stays in your browser - we never see your invoices.
           </p>
