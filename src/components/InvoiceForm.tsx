@@ -309,7 +309,7 @@ export default function InvoiceForm({
                                 value={data.paymentReference || ''}
                                 onChange={(e) => updateField('paymentReference', e.target.value)}
                                 placeholder="e.g., INV001-CLIENT"
-                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                className="min-w-0 flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                             />
                             <button
                                 type="button"
@@ -317,7 +317,7 @@ export default function InvoiceForm({
                                     const ref = `${data.invoiceNumber.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}-${data.clientName.slice(0, 4).replace(/[^a-zA-Z0-9]/g, '').toUpperCase() || 'REF'}`;
                                     updateField('paymentReference', ref);
                                 }}
-                                className="px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap"
+                                className="px-3 py-2 text-sm bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors flex-shrink-0"
                                 title="Auto-generate from invoice number and client name"
                             >
                                 Auto

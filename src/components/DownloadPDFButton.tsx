@@ -40,22 +40,18 @@ export default function DownloadPDFButton({
             const invoiceNum = (invoiceData.invoiceNumber || 'Invoice').replace(/[^a-zA-Z0-9-_]/g, '_');
             const filename = `${invoiceNum}_${date}.pdf`;
 
-            // Create blob URL and open in new tab
+            // Create blob URL and trigger direct download
+            // Using anchor element with download attribute works better on mobile
             const blobUrl = URL.createObjectURL(blob);
-            const pdfWindow = window.open(blobUrl, '_blank');
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
 
-            if (pdfWindow) {
-                pdfWindow.document.title = filename;
-            } else {
-                // If popup was blocked, fallback to direct download
-                const link = document.createElement('a');
-                link.href = blobUrl;
-                link.download = filename;
-                link.target = '_blank';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
+            // Clean up the blob URL after a short delay
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
         } catch (error) {
             console.error('Error generating PDF:', error);
             alert('There was an error generating the PDF. Please try again.');
