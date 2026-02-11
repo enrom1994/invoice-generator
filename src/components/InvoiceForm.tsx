@@ -1,13 +1,14 @@
 'use client';
 
-import { InvoiceData, SavedClient, TemplateType } from '@/types/invoice';
+import { InvoiceData, SavedClient } from '@/types/invoice';
+import { DEFAULT_CURRENCY, CURRENCIES, DEFAULT_TAX_NAME, PAYMENT_TERMS_OPTIONS } from '@/lib/i18n';
+import { getDemoDataForTemplate } from '@/lib/demoData';
 import LineItems from './LineItems';
 import LogoUpload from './LogoUpload';
 import DocumentTypeToggle from './DocumentTypeToggle';
 import PaymentMethodToggle from './PaymentMethodToggle';
 import TemplateSelector from './TemplateSelector';
 import ClientSelector from './ClientSelector';
-import PaymentTermsSelector from './PaymentTermsSelector';
 
 interface InvoiceFormProps {
     data: InvoiceData;
@@ -15,10 +16,12 @@ interface InvoiceFormProps {
     logoUrl: string | null;
     onLogoChange: (base64: string) => void;
     onLogoRemove: () => void;
-    // Client management
     savedClients: SavedClient[];
     onSaveClient: (client: Omit<SavedClient, 'id' | 'createdAt'>) => void;
     onDeleteClient: (id: string) => void;
+    canUseLogo: boolean;
+    canUseProTemplates: boolean;
+    mounted?: boolean;
 }
 
 export default function InvoiceForm({
@@ -30,12 +33,14 @@ export default function InvoiceForm({
     savedClients,
     onSaveClient,
     onDeleteClient,
+    canUseLogo: hasProLogo,
+    canUseProTemplates: hasProTemplates,
+    mounted = false,
 }: InvoiceFormProps) {
     const updateField = <K extends keyof InvoiceData>(field: K, value: InvoiceData[K]) => {
         onChange({ ...data, [field]: value });
     };
 
-    // Handle client selection
     const handleSelectClient = (client: SavedClient) => {
         onChange({
             ...data,
@@ -45,16 +50,44 @@ export default function InvoiceForm({
         });
     };
 
-    // Get label based on document type
+    const handleCurrencyChange = (code: string) => {
+        const currency = CURRENCIES.find(c => c.code === code) || DEFAULT_CURRENCY;
+        updateField('currency', currency);
+    };
+
+    const handleTaxRateChange = (rate: number) => {
+        updateField('tax', {
+            ...data.tax,
+            rate: Math.max(0, Math.min(100, rate)),
+        });
+    };
+
+    const handleTaxToggle = (enabled: boolean) => {
+        updateField('tax', {
+            ...data.tax,
+            enabled,
+        });
+    };
+
+    const handleTaxNameChange = (name: string) => {
+        updateField('tax', {
+            ...data.tax,
+            name: name || DEFAULT_TAX_NAME,
+        });
+    };
+
     const isQuote = data.documentType === 'quotation';
     const documentLabel = isQuote ? 'Quote' : 'Invoice';
     const dueDateLabel = isQuote ? 'Valid Until' : 'Due Date';
 
+    const subtotal = data.lineItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const taxAmount = data.tax.enabled ? subtotal * (data.tax.rate / 100) : 0;
+    const total = subtotal + taxAmount;
+
     return (
-        <div className="space-y-8">
-            {/* Document Settings */}
-            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Document Settings</h2>
+        <div className="space-y-4 md:space-y-6">
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4">Document Settings</h2>
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -74,30 +107,97 @@ export default function InvoiceForm({
                             onChange={(value) => updateField('paymentMethod', value)}
                         />
                     </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="currency" className="block text-sm font-medium text-gray-700 mb-2">
+                                Currency
+                            </label>
+                            <select
+                                id="currency"
+                                value={data.currency.code}
+                                onChange={(e) => handleCurrencyChange(e.target.value)}
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
+                            >
+                                {CURRENCIES.map((curr) => (
+                                    <option key={curr.code} value={curr.code}>
+                                        {curr.symbol} {curr.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="paymentTerms" className="block text-sm font-medium text-gray-700 mb-2">
+                                Payment Terms
+                            </label>
+                            <select
+                                id="paymentTerms"
+                                value={data.paymentTermsDays}
+                                onChange={(e) => updateField('paymentTermsDays', parseInt(e.target.value))}
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
+                            >
+                                {PAYMENT_TERMS_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                     <TemplateSelector
                         value={data.template}
-                        onChange={(value) => updateField('template', value)}
+                        onChange={(value) => {
+                            // Check if switching to a template with rich demo data
+                            const demoData = getDemoDataForTemplate(value);
+                            
+                            if (Object.keys(demoData).length > 0 && (
+                                value === 'executive' || 
+                                value === 'split' || 
+                                value === 'card' || 
+                                value === 'luxury-minimal'
+                            )) {
+                                // Merge demo data with current data, preserving some fields
+                                const mergedData: InvoiceData = {
+                                    ...data,
+                                    ...demoData,
+                                    template: value,
+                                    // Preserve these fields from current data
+                                    currency: data.currency,
+                                    tax: data.tax,
+                                    documentType: data.documentType,
+                                    paymentMethod: data.paymentMethod,
+                                    paymentTermsDays: data.paymentTermsDays,
+                                    // Preserve custom colors
+                                    primaryColor: data.primaryColor,
+                                    accentColor: data.accentColor,
+                                };
+                                onChange(mergedData);
+                            } else {
+                                // Just update the template
+                                updateField('template', value);
+                            }
+                        }}
+                        canUseProTemplates={hasProTemplates}
+                        mounted={mounted}
                     />
                 </div>
             </section>
 
-            {/* Freelancer Details */}
-            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold">1</span>
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <span className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-sm font-bold">1</span>
                     Your Details
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Your Name / Business Name *
                         </label>
                         <input
                             type="text"
-                            value={data.freelancerName}
-                            onChange={(e) => updateField('freelancerName', e.target.value)}
-                            placeholder="John Doe Consulting"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            value={data.senderName}
+                            onChange={(e) => updateField('senderName', e.target.value)}
+                            placeholder="Your Business Name"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             required
                         />
                     </div>
@@ -107,10 +207,10 @@ export default function InvoiceForm({
                         </label>
                         <input
                             type="email"
-                            value={data.freelancerEmail}
-                            onChange={(e) => updateField('freelancerEmail', e.target.value)}
-                            placeholder="john@example.com"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            value={data.senderEmail}
+                            onChange={(e) => updateField('senderEmail', e.target.value)}
+                            placeholder="you@example.com"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                         />
                     </div>
                     <div>
@@ -119,90 +219,95 @@ export default function InvoiceForm({
                         </label>
                         <input
                             type="tel"
-                            value={data.freelancerPhone}
-                            onChange={(e) => updateField('freelancerPhone', e.target.value)}
-                            placeholder="072 123 4567"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            value={data.senderPhone}
+                            onChange={(e) => updateField('senderPhone', e.target.value)}
+                            placeholder="+1 234 567 8900"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                         />
                     </div>
-                    <div>
+                    <div className="sm:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Address
                         </label>
                         <input
                             type="text"
-                            value={data.freelancerAddress}
-                            onChange={(e) => updateField('freelancerAddress', e.target.value)}
-                            placeholder="123 Main Street, Cape Town, 8001"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            value={data.senderAddress}
+                            onChange={(e) => updateField('senderAddress', e.target.value)}
+                            placeholder="123 Business St, City, Country"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                         />
                     </div>
-                    <div>
+                    <div className="sm:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Company Registration Number
+                            Registration Number
                         </label>
                         <input
                             type="text"
-                            value={data.companyRegistration || ''}
-                            onChange={(e) => updateField('companyRegistration', e.target.value)}
-                            placeholder="2024/123456/07"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            value={data.registrationNumber || ''}
+                            onChange={(e) => updateField('registrationNumber', e.target.value)}
+                            placeholder="Company Registration / Tax ID"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                         />
                     </div>
                 </div>
 
-                {/* Bank Details - Only show for EFT payments */}
                 {data.paymentMethod !== 'cash' && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                        <h3 className="text-sm font-semibold text-gray-600 mb-3">Banking Details (Optional)</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                        <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                            <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                            Bank Details <span className="text-gray-400 font-normal">(Optional)</span>
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="block text-sm font-medium text-gray-700">
                                     Bank Name
                                 </label>
                                 <input
                                     type="text"
                                     value={data.bankName}
                                     onChange={(e) => updateField('bankName', e.target.value)}
-                                    placeholder="FNB, Standard Bank, etc."
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    placeholder="e.g., Chase Bank"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <div className="space-y-1">
+                                <label className="block text-sm font-medium text-gray-700">
                                     Account Number
                                 </label>
                                 <input
                                     type="text"
                                     value={data.accountNumber}
                                     onChange={(e) => updateField('accountNumber', e.target.value)}
-                                    placeholder="1234567890"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    placeholder="Your account number"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Branch Code
+                            <div className="space-y-1">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Branch / Swift Code
                                 </label>
                                 <input
                                     type="text"
                                     value={data.branchCode}
                                     onChange={(e) => updateField('branchCode', e.target.value)}
-                                    placeholder="250655"
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    placeholder="e.g., CHASUS33"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <div className="space-y-1">
+                                <label htmlFor="accountType" className="block text-sm font-medium text-gray-700">
                                     Account Type
                                 </label>
                                 <select
+                                    id="accountType"
                                     value={data.accountType || ''}
                                     onChange={(e) => updateField('accountType', e.target.value as 'cheque' | 'savings' | '')}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
                                 >
-                                    <option value="">Select...</option>
-                                    <option value="cheque">Cheque</option>
+                                    <option value="">Select type...</option>
+                                    <option value="cheque">Cheque / Checking</option>
                                     <option value="savings">Savings</option>
                                 </select>
                             </div>
@@ -210,22 +315,23 @@ export default function InvoiceForm({
                     </div>
                 )}
 
-                {/* Logo Upload - Always shown */}
-                <LogoUpload
-                    logoUrl={logoUrl}
-                    onLogoChange={onLogoChange}
-                    onLogoRemove={onLogoRemove}
-                />
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                    <LogoUpload
+                        logoUrl={logoUrl}
+                        onLogoChange={onLogoChange}
+                        onLogoRemove={onLogoRemove}
+                        disabled={!hasProLogo}
+                        isProFeature={!hasProLogo}
+                    />
+                </div>
             </section>
 
-            {/* Client Details */}
-            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold">2</span>
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <span className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-sm font-bold">2</span>
                     Client Details
                 </h2>
 
-                {/* Client Selector */}
                 <div className="mb-4">
                     <ClientSelector
                         clients={savedClients}
@@ -238,8 +344,8 @@ export default function InvoiceForm({
                     />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Client Name / Company *
                         </label>
@@ -247,8 +353,8 @@ export default function InvoiceForm({
                             type="text"
                             value={data.clientName}
                             onChange={(e) => updateField('clientName', e.target.value)}
-                            placeholder="ABC Company (Pty) Ltd"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            placeholder="Client Company Name"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             required
                         />
                     </div>
@@ -260,11 +366,11 @@ export default function InvoiceForm({
                             type="email"
                             value={data.clientEmail}
                             onChange={(e) => updateField('clientEmail', e.target.value)}
-                            placeholder="accounts@abccompany.co.za"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            placeholder="client@example.com"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                         />
                     </div>
-                    <div className="md:col-span-2">
+                    <div className="sm:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Client Address
                         </label>
@@ -272,20 +378,19 @@ export default function InvoiceForm({
                             type="text"
                             value={data.clientAddress}
                             onChange={(e) => updateField('clientAddress', e.target.value)}
-                            placeholder="456 Business Park, Johannesburg, 2001"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            placeholder="456 Client Ave, City, Country"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                         />
                     </div>
                 </div>
             </section>
 
-            {/* Invoice/Quote Details */}
-            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold">3</span>
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <span className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-sm font-bold">3</span>
                     {documentLabel} Details
                 </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             {documentLabel} Number *
@@ -295,7 +400,7 @@ export default function InvoiceForm({
                             value={data.invoiceNumber}
                             onChange={(e) => updateField('invoiceNumber', e.target.value)}
                             placeholder="INV-001"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             required
                         />
                     </div>
@@ -308,8 +413,8 @@ export default function InvoiceForm({
                                 type="text"
                                 value={data.paymentReference || ''}
                                 onChange={(e) => updateField('paymentReference', e.target.value)}
-                                placeholder="e.g., INV001-CLIENT"
-                                className="min-w-0 flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                placeholder="Payment Reference"
+                                className="min-w-0 flex-1 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
                             />
                             <button
                                 type="button"
@@ -323,96 +428,123 @@ export default function InvoiceForm({
                                 Auto
                             </button>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">Client uses this when making EFT payment</p>
+                        <p className="text-xs text-gray-400 mt-1">Used for payment reference</p>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label htmlFor="invoiceDate" className="block text-sm font-medium text-gray-700 mb-1">
                             {documentLabel} Date *
                         </label>
                         <input
+                            id="invoiceDate"
                             type="date"
                             value={data.invoiceDate}
                             onChange={(e) => updateField('invoiceDate', e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             required
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">
                             {dueDateLabel} *
                         </label>
                         <input
+                            id="dueDate"
                             type="date"
                             value={data.dueDate}
                             onChange={(e) => updateField('dueDate', e.target.value)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             required
                         />
                     </div>
                 </div>
 
-                {/* VAT Toggle */}
                 <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
-                                checked={data.includeVAT}
-                                onChange={(e) => updateField('includeVAT', e.target.checked)}
-                                className="w-5 h-5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                                checked={data.tax.enabled}
+                                onChange={(e) => handleTaxToggle(e.target.checked)}
+                                className="w-5 h-5 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
                             />
                             <span className="text-sm font-medium text-gray-700">
-                                Include VAT (15%)
+                                Include {data.tax.name || 'Tax'}
                             </span>
                         </label>
+                        {data.tax.enabled && (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                    value={data.tax.rate}
+                                    onChange={(e) => handleTaxRateChange(parseFloat(e.target.value) || 0)}
+                                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm text-center"
+                                />
+                                <span className="text-sm text-gray-600">%</span>
+                            </div>
+                        )}
                     </div>
-                    {data.includeVAT && (
-                        <div className="mt-3">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                VAT Registration Number
-                            </label>
-                            <input
-                                type="text"
-                                value={data.vatNumber}
-                                onChange={(e) => updateField('vatNumber', e.target.value)}
-                                placeholder="4123456789"
-                                className="w-full md:w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                            />
+                    {data.tax.enabled && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    {data.tax.name} Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={data.tax.name}
+                                    onChange={(e) => handleTaxNameChange(e.target.value)}
+                                    placeholder="VAT, GST, Sales Tax..."
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
+                                />
+                            </div>
                         </div>
                     )}
                 </div>
+
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Subtotal:</span>
+                        <span className="font-medium">{data.currency.symbol}{(subtotal).toFixed(2)}</span>
+                    </div>
+                    {data.tax.enabled && (
+                        <div className="flex justify-between text-sm mt-1">
+                            <span className="text-gray-600">{data.tax.name} ({data.tax.rate}%):</span>
+                            <span className="font-medium">{data.currency.symbol}{(taxAmount).toFixed(2)}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between text-base font-bold mt-2 pt-2 border-t border-gray-200">
+                        <span>Total:</span>
+                        <span>{data.currency.symbol}{(total).toFixed(2)}</span>
+                    </div>
+                </div>
             </section>
 
-            {/* Line Items */}
-            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <span className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold">4</span>
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <span className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-sm font-bold">4</span>
                     Services / Products
                 </h2>
                 <LineItems
                     lineItems={data.lineItems}
                     onChange={(items) => updateField('lineItems', items)}
+                    currencySymbol={data.currency.symbol}
                 />
             </section>
 
-            {/* Notes */}
-            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                        <span className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-sm font-bold">5</span>
-                        Notes & Payment Terms
-                    </h2>
-                    <PaymentTermsSelector
-                        currentNotes={data.notes}
-                        onApply={(terms) => updateField('notes', terms)}
-                    />
-                </div>
+            <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <span className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-sm font-bold">5</span>
+                    Notes & Terms
+                </h2>
                 <textarea
                     value={data.notes}
                     onChange={(e) => updateField('notes', e.target.value)}
-                    placeholder="Payment is due within 30 days. Thank you for your business!"
+                    placeholder="Payment terms, notes, or additional information..."
                     rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 resize-none"
                 />
             </section>
         </div>

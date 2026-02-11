@@ -1,14 +1,26 @@
 'use client';
 
-import { InvoiceData, LineItem } from '@/types/invoice';
-import { generateId } from '@/lib/utils';
+import { useState } from 'react';
+import { LineItem } from '@/types/invoice';
+import { generateId } from '@/lib/i18n';
 
 interface LineItemsProps {
     lineItems: LineItem[];
     onChange: (items: LineItem[]) => void;
+    currencySymbol?: string;
 }
 
-export default function LineItems({ lineItems, onChange }: LineItemsProps) {
+// Track temporary input values for each item
+interface InputState {
+    [key: string]: {
+        quantity: string;
+        unitPrice: string;
+    };
+}
+
+export default function LineItems({ lineItems, onChange, currencySymbol = '$' }: LineItemsProps) {
+    const [inputState, setInputState] = useState<InputState>({});
+
     const addItem = () => {
         const newItem: LineItem = {
             id: generateId(),
@@ -22,6 +34,10 @@ export default function LineItems({ lineItems, onChange }: LineItemsProps) {
     const removeItem = (id: string) => {
         if (lineItems.length > 1) {
             onChange(lineItems.filter((item) => item.id !== id));
+            // Clean up input state
+            const newState = { ...inputState };
+            delete newState[id];
+            setInputState(newState);
         }
     };
 
@@ -33,89 +49,187 @@ export default function LineItems({ lineItems, onChange }: LineItemsProps) {
         );
     };
 
+    const handleQuantityChange = (id: string, value: string) => {
+        // Update temporary state immediately
+        setInputState(prev => ({
+            ...prev,
+            [id]: {
+                ...prev[id],
+                quantity: value
+            }
+        }));
+
+        // Parse as float to allow decimals (e.g., 1.5, 4.5)
+        const numValue = parseFloat(value);
+        if (!isNaN(numValue) && numValue > 0) {
+            updateItem(id, 'quantity', numValue);
+        } else if (value === '') {
+            // Allow empty temporarily, will reset to 1 on blur
+            updateItem(id, 'quantity', 1);
+        }
+    };
+
+    const handleQuantityBlur = (id: string) => {
+        const item = lineItems.find(i => i.id === id);
+        if (item) {
+            // Reset input state to actual value
+            setInputState(prev => ({
+                ...prev,
+                [id]: {
+                    ...prev[id],
+                    quantity: item.quantity.toString()
+                }
+            }));
+        }
+    };
+
+    const handlePriceChange = (id: string, value: string) => {
+        // Update temporary state immediately
+        setInputState(prev => ({
+            ...prev,
+            [id]: {
+                ...prev[id],
+                unitPrice: value
+            }
+        }));
+
+        // Only update the actual data if it's a valid number
+        const numValue = parseFloat(value);
+        if (!isNaN(numValue) && numValue >= 0) {
+            updateItem(id, 'unitPrice', numValue);
+        } else if (value === '') {
+            // Allow empty temporarily, will reset to 0 on blur
+            updateItem(id, 'unitPrice', 0);
+        }
+    };
+
+    const handlePriceBlur = (id: string) => {
+        const item = lineItems.find(i => i.id === id);
+        if (item) {
+            // Reset input state to actual value
+            setInputState(prev => ({
+                ...prev,
+                [id]: {
+                    ...prev[id],
+                    unitPrice: item.unitPrice.toString()
+                }
+            }));
+        }
+    };
+
+    const getQuantityValue = (item: LineItem): string => {
+        const tempValue = inputState[item.id]?.quantity;
+        if (tempValue !== undefined) {
+            return tempValue;
+        }
+        return item.quantity === 0 ? '' : item.quantity.toString();
+    };
+
+    const getPriceValue = (item: LineItem): string => {
+        const tempValue = inputState[item.id]?.unitPrice;
+        if (tempValue !== undefined) {
+            return tempValue;
+        }
+        return item.unitPrice === 0 ? '' : item.unitPrice.toString();
+    };
+
+    const calculateTotal = (quantity: number, unitPrice: number): string => {
+        return (quantity * unitPrice).toFixed(2);
+    };
+
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-900">Line Items</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <h3 className="text-lg font-semibold text-gray-900">Services / Products</h3>
                 <button
                     type="button"
                     onClick={addItem}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
+                    className="w-full sm:w-auto px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium flex items-center justify-center gap-2"
                 >
-                    + Add Item
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Item
                 </button>
             </div>
 
             <div className="space-y-3">
-                {/* Header - hidden on mobile */}
-                <div className="hidden md:grid md:grid-cols-12 gap-3 text-sm font-medium text-gray-600 px-1">
+                <div className="hidden md:grid md:grid-cols-12 gap-3 text-sm font-medium text-gray-600 px-2">
                     <div className="col-span-6">Description</div>
                     <div className="col-span-2 text-center">Qty</div>
-                    <div className="col-span-3 text-right">Unit Price (R)</div>
+                    <div className="col-span-3 text-right">Price ({currencySymbol})</div>
                     <div className="col-span-1"></div>
                 </div>
 
                 {lineItems.map((item, index) => (
                     <div
                         key={item.id}
-                        className="bg-gray-50 rounded-lg p-4 space-y-3 md:space-y-0 md:grid md:grid-cols-12 md:gap-3 md:items-center md:p-2"
+                        className="bg-gray-50 rounded-lg p-3 space-y-3 md:space-y-0 md:grid md:grid-cols-12 md:gap-3 md:items-center md:p-3"
                     >
-                        {/* Mobile label */}
-                        <div className="md:hidden text-sm font-medium text-gray-600">
-                            Item {index + 1}
-                        </div>
-
-                        {/* Description */}
                         <div className="md:col-span-6">
                             <label className="md:hidden text-xs text-gray-500 mb-1 block">
-                                Description
+                                Item {index + 1}
                             </label>
                             <input
                                 type="text"
                                 value={item.description}
                                 onChange={(e) => updateItem(item.id, 'description', e.target.value)}
                                 placeholder="Service or product description"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
                             />
                         </div>
 
-                        {/* Quantity */}
                         <div className="md:col-span-2">
                             <label className="md:hidden text-xs text-gray-500 mb-1 block">
                                 Quantity
                             </label>
                             <input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 1)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm text-center"
-                            />
-                        </div>
-
-                        {/* Unit Price */}
-                        <div className="md:col-span-3">
-                            <label className="md:hidden text-xs text-gray-500 mb-1 block">
-                                Unit Price (R)
-                            </label>
-                            <input
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
+                                pattern="[0-9]*[.,]?[0-9]*"
                                 min="0"
                                 step="0.01"
-                                value={item.unitPrice}
-                                onChange={(e) => updateItem(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm text-right"
+                                value={getQuantityValue(item)}
+                                onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                                onBlur={() => handleQuantityBlur(item.id)}
+                                placeholder="1"
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm text-center"
                             />
                         </div>
 
-                        {/* Remove button */}
-                        <div className="md:col-span-1 flex justify-end">
+                        <div className="md:col-span-3">
+                            <label className="md:hidden text-xs text-gray-500 mb-1 block">
+                                Unit Price
+                            </label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{currencySymbol}</span>
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    pattern="[0-9]*[.,]?[0-9]*"
+                                    min="0"
+                                    step="0.01"
+                                    value={getPriceValue(item)}
+                                    onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                                    onBlur={() => handlePriceBlur(item.id)}
+                                    placeholder="0.00"
+                                    className="w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm text-right"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="md:col-span-1 flex items-center justify-between md:justify-end gap-2">
+                            <div className="md:hidden text-sm">
+                                <span className="text-gray-500">Total: </span>
+                                <span className="font-semibold text-gray-900">{currencySymbol}{calculateTotal(item.quantity, item.unitPrice)}</span>
+                            </div>
                             <button
                                 type="button"
                                 onClick={() => removeItem(item.id)}
                                 disabled={lineItems.length === 1}
                                 className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 title="Remove item"
+                                aria-label={`Remove item ${index + 1}`}
                             >
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
@@ -134,6 +248,19 @@ export default function LineItems({ lineItems, onChange }: LineItemsProps) {
                     </div>
                 ))}
             </div>
+
+            {lineItems.length === 0 && (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">No items added yet</p>
+                    <button
+                        type="button"
+                        onClick={addItem}
+                        className="mt-2 text-teal-600 hover:text-teal-700 font-medium text-sm"
+                    >
+                        Add your first item
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

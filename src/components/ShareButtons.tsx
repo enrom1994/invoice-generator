@@ -5,27 +5,33 @@ import { pdf } from '@react-pdf/renderer';
 import { InvoiceData } from '@/types/invoice';
 import { formatCurrency } from '@/lib/utils';
 import InvoicePDF from './InvoicePDF';
+import QRCode from 'qrcode';
 
 interface ShareButtonsProps {
     invoiceData: InvoiceData;
     logoUrl?: string | null;
+    isPro?: boolean;
+    canCustomizeWhatsApp?: boolean;
 }
 
-export default function ShareButtons({ invoiceData, logoUrl }: ShareButtonsProps) {
+export default function ShareButtons({ 
+    invoiceData, 
+    logoUrl, 
+    isPro = false,
+    canCustomizeWhatsApp = false 
+}: ShareButtonsProps) {
     const [isSharing, setIsSharing] = useState(false);
 
     const isQuote = invoiceData.documentType === 'quotation';
     const documentLabel = isQuote ? 'Quotation' : 'Invoice';
 
-    // Calculate total
     const subtotal = invoiceData.lineItems.reduce(
         (sum, item) => sum + item.quantity * item.unitPrice,
         0
     );
-    const vatAmount = invoiceData.includeVAT ? subtotal * 0.15 : 0;
-    const total = subtotal + vatAmount;
+    const taxAmount = invoiceData.tax.enabled ? subtotal * (invoiceData.tax.rate / 100) : 0;
+    const total = subtotal + taxAmount;
 
-    // Generate filename
     const getFilename = (): string => {
         const date = invoiceData.invoiceDate
             ? new Date(invoiceData.invoiceDate).toISOString().split('T')[0]
@@ -34,27 +40,53 @@ export default function ShareButtons({ invoiceData, logoUrl }: ShareButtonsProps
         return `${invoiceNum}_${date}.pdf`;
     };
 
-    // Generate PDF blob
     const generatePDFBlob = async (): Promise<Blob> => {
+        // Generate QR code data URL if enabled
+        let qrCodeDataUrl: string | null = null;
+        if (isPro && invoiceData.paymentQR?.enabled && invoiceData.paymentQR.value) {
+            try {
+                qrCodeDataUrl = await QRCode.toDataURL(invoiceData.paymentQR.value, {
+                    width: 100,
+                    margin: 2,
+                    errorCorrectionLevel: 'M',
+                });
+            } catch (error) {
+                console.error('QR code generation failed:', error);
+            }
+        }
+
         const pdfDoc = (
             <InvoicePDF
                 data={invoiceData}
                 logoUrl={logoUrl}
+                isPro={isPro}
+                qrCodeDataUrl={qrCodeDataUrl}
             />
         );
         return await pdf(pdfDoc).toBlob();
     };
 
-    // Generate WhatsApp share message (text-only fallback)
     const generateWhatsAppMessage = (): string => {
+        // Use custom template if available and user is Pro
+        if (canCustomizeWhatsApp && invoiceData.settings?.whatsappMessageTemplate) {
+            const template = invoiceData.settings.whatsappMessageTemplate;
+            return template
+                .replace(/{{clientName}}/g, invoiceData.clientName || 'there')
+                .replace(/{{documentType}}/g, isQuote ? 'quotation' : 'invoice')
+                .replace(/{{invoiceNumber}}/g, invoiceData.invoiceNumber || 'N/A')
+                .replace(/{{currency}}/g, invoiceData.currency.symbol)
+                .replace(/{{totalAmount}}/g, formatCurrency(total, invoiceData.currency));
+        }
+
+        // Default message
         const lines = [
             `📄 *${documentLabel} #${invoiceData.invoiceNumber || 'N/A'}*`,
             '',
-            `From: ${invoiceData.freelancerName || 'Your Business'}`,
+            `From: ${invoiceData.senderName || 'Your Business'}`,
             `To: ${invoiceData.clientName || 'Client'}`,
             '',
-            `*Total: ${formatCurrency(total)}*`,
-            invoiceData.includeVAT ? `(Incl. VAT: ${formatCurrency(vatAmount)})` : '',
+            `*Total: ${formatCurrency(total, invoiceData.currency)}*`,
+            invoiceData.tax.enabled ? `(Incl. ${invoiceData.tax.name}: ${formatCurrency(taxAmount, invoiceData.currency)})` : '',
             '',
             isQuote ? `Valid Until: ${invoiceData.dueDate}` : `Due Date: ${invoiceData.dueDate}`,
         ].filter(Boolean);
@@ -62,9 +94,8 @@ export default function ShareButtons({ invoiceData, logoUrl }: ShareButtonsProps
         return lines.join('\n');
     };
 
-    // Generate email subject and body
     const generateEmailSubject = (): string => {
-        return `${documentLabel} #${invoiceData.invoiceNumber || 'N/A'} from ${invoiceData.freelancerName || 'Your Business'}`;
+        return `${documentLabel} #${invoiceData.invoiceNumber || 'N/A'} from ${invoiceData.senderName || 'Your Business'}`;
     };
 
     const generateEmailBody = (): string => {
@@ -73,21 +104,20 @@ export default function ShareButtons({ invoiceData, logoUrl }: ShareButtonsProps
             '',
             `Please find attached ${documentLabel.toLowerCase()} #${invoiceData.invoiceNumber || 'N/A'}.`,
             '',
-            `Total Amount: ${formatCurrency(total)}`,
+            `Total Amount: ${formatCurrency(total, invoiceData.currency)}`,
             isQuote ? `Valid Until: ${invoiceData.dueDate}` : `Due Date: ${invoiceData.dueDate}`,
             '',
             'Please let me know if you have any questions.',
             '',
             'Kind regards,',
-            invoiceData.freelancerName || 'Your Name',
-            invoiceData.freelancerEmail ? `\n${invoiceData.freelancerEmail}` : '',
-            invoiceData.freelancerPhone ? `Tel: ${invoiceData.freelancerPhone}` : '',
+            invoiceData.senderName || 'Your Name',
+            invoiceData.senderEmail ? `\n${invoiceData.senderEmail}` : '',
+            invoiceData.senderPhone ? `Tel: ${invoiceData.senderPhone}` : '',
         ].filter(Boolean);
 
         return lines.join('\n');
     };
 
-    // Handle share with PDF file (using Web Share API)
     const handleShare = async () => {
         setIsSharing(true);
 
@@ -96,7 +126,6 @@ export default function ShareButtons({ invoiceData, logoUrl }: ShareButtonsProps
             const blob = await generatePDFBlob();
             const file = new File([blob], filename, { type: 'application/pdf' });
 
-            // Check if Web Share API with files is supported
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     files: [file],
@@ -104,17 +133,14 @@ export default function ShareButtons({ invoiceData, logoUrl }: ShareButtonsProps
                     text: generateWhatsAppMessage(),
                 });
             } else {
-                // Fallback: Open WhatsApp with text-only message
                 const message = encodeURIComponent(
-                    generateWhatsAppMessage() + '\n\n---\n💡 Tip: Download the PDF and attach it manually.'
+                    generateWhatsAppMessage() + '\n\n---\n📎 Download the PDF and attach it manually.'
                 );
                 window.open(`https://wa.me/?text=${message}`, '_blank');
             }
         } catch (error) {
-            // User cancelled or error occurred
             if ((error as Error).name !== 'AbortError') {
                 console.error('Share error:', error);
-                // Fallback to text-only
                 const message = encodeURIComponent(generateWhatsAppMessage());
                 window.open(`https://wa.me/?text=${message}`, '_blank');
             }
@@ -132,12 +158,12 @@ export default function ShareButtons({ invoiceData, logoUrl }: ShareButtonsProps
 
     return (
         <div className="flex items-center gap-2">
-            {/* Share Button (WhatsApp + Native Share) */}
             <button
                 onClick={handleShare}
                 disabled={isSharing}
-                className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
-                title="Share PDF via WhatsApp"
+                className="p-2.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+                title="Share via WhatsApp"
+                aria-label="Share via WhatsApp"
             >
                 {isSharing ? (
                     <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24">
@@ -151,11 +177,11 @@ export default function ShareButtons({ invoiceData, logoUrl }: ShareButtonsProps
                 )}
             </button>
 
-            {/* Email Share */}
             <button
                 onClick={handleEmailShare}
-                className="p-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                title="Compose Email"
+                className="p-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                title="Send via Email"
+                aria-label="Send via Email"
             >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />

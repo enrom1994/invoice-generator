@@ -6,42 +6,40 @@ import { InvoiceData } from '@/types/invoice';
 import InvoicePDF from './InvoicePDF';
 
 interface DownloadPDFButtonProps {
-    invoiceRef: React.RefObject<HTMLDivElement | null>; // Kept for backwards compatibility
+    invoiceRef: React.RefObject<HTMLDivElement | null>;
     invoiceData: InvoiceData;
     logoUrl?: string | null;
+    isPro?: boolean;
 }
 
 export default function DownloadPDFButton({
+    invoiceRef: _invoiceRef,
     invoiceData,
     logoUrl,
+    isPro = false,
 }: DownloadPDFButtonProps) {
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // Generate PDF using @react-pdf/renderer
     const generatePDF = async () => {
         setIsGenerating(true);
 
         try {
-            // Create the PDF document
             const pdfDoc = (
                 <InvoicePDF
                     data={invoiceData}
                     logoUrl={logoUrl}
+                    isPro={isPro}
                 />
             );
 
-            // Generate the PDF blob
             const blob = await pdf(pdfDoc).toBlob();
 
-            // Generate filename with sanitized values
             const date = invoiceData.invoiceDate
                 ? new Date(invoiceData.invoiceDate).toISOString().split('T')[0]
                 : new Date().toISOString().split('T')[0];
             const invoiceNum = (invoiceData.invoiceNumber || 'Invoice').replace(/[^a-zA-Z0-9-_]/g, '_');
             const filename = `${invoiceNum}_${date}.pdf`;
 
-            // Create blob URL and trigger direct download
-            // Using anchor element with download attribute works better on mobile
             const blobUrl = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
@@ -50,7 +48,6 @@ export default function DownloadPDFButton({
             link.click();
             document.body.removeChild(link);
 
-            // Clean up the blob URL after a short delay
             setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
         } catch (error) {
             console.error('Error generating PDF:', error);
@@ -64,8 +61,9 @@ export default function DownloadPDFButton({
         <button
             onClick={generatePDF}
             disabled={isGenerating}
-            className="p-2.5 sm:px-6 sm:py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-4 py-2.5 sm:px-6 sm:py-3 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-teal-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Download PDF"
+            aria-label="Download PDF"
         >
             {isGenerating ? (
                 <>
@@ -90,6 +88,7 @@ export default function DownloadPDFButton({
                         />
                     </svg>
                     <span className="hidden sm:inline">Download PDF</span>
+                    <span className="sm:hidden">PDF</span>
                 </>
             )}
         </button>

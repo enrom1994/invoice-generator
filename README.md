@@ -1,44 +1,43 @@
-# 🇿🇦 SA Invoice Generator
+# ⚡ Zenvoice — Free Invoice Generator
 
-A free, client-side invoice generator built for South African freelancers. No signup, no backend, no tracking - your data stays in your browser.
+Create professional invoices and quotations instantly — no signup, no watermarks, no subscriptions. 100% private, works offline, and all data stays in your browser.
+
+🌐 **[Try Zenvoice →](https://zenvoice.netlify.app)**
 
 ## Features
 
-### Free Tier
-- ✅ Generate professional invoices
-- ✅ ZAR currency formatting (R 1,234.56)
-- ✅ Optional 15% VAT toggle
-- ✅ PDF download (with small watermark)
+### Free Features
+- ✅ Create invoices and quotations
+- ✅ Multi-currency support (USD, EUR, GBP, ZAR, and more)
+- ✅ Configurable tax rate (any percentage)
+- ✅ 3 free templates (Minimal, Modern, Compact)
+- ✅ PDF download
+- ✅ WhatsApp, Email & Link sharing
+- ✅ Auto-save drafts
+- ✅ Save client profiles
 - ✅ Mobile-friendly design
+- ✅ No signup required
+- ✅ 100% client-side (data stays in your browser)
 
-### Pro Tier (R49 once-off)
-- ✅ No watermark on PDFs
-- ✅ Upload your company logo
-- ✅ Logo appears on all invoices
-- ✅ Unlock remains forever (stored in browser)
-
-## Tech Stack
-
-- **Framework**: Next.js 14 (App Router)
-- **Styling**: Tailwind CSS
-- **PDF**: @react-pdf/renderer (native PDF generation)
-- **Language**: TypeScript
-- **State**: localStorage (no backend)
+### PRO Features ($12 lifetime)
+- ✅ Upload company logo
+- ✅ Full RGB color customization
+- ✅ 6 premium templates (Sidebar, Executive, Split, Card, Luxury Minimal, Letterhead)
+- ✅ Payment QR codes
+- ✅ Custom WhatsApp message templates
+- ✅ Data backup (Import/Export)
+- ✅ Priority support
 
 ## Getting Started
 
 ### Prerequisites
-
-- Node.js 18+ 
+- Node.js 18+
 - npm
 
 ### Installation
 
 ```bash
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
 ```
 
@@ -48,98 +47,54 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ```bash
 npm run build
-npm run start
 ```
 
-## Monetization Setup
+Static output is generated in the `out/` directory.
 
-### Configuration
+## Tech Stack
 
-Edit `src/lib/config.ts` to customize:
+- **Framework**: Next.js 16 (App Router, Static Export)
+- **Styling**: Tailwind CSS v4
+- **PDF**: @react-pdf/renderer
+- **Language**: TypeScript
+- **State**: localStorage (no backend)
 
-```typescript
-export const MONETIZATION = {
-  PRICE_ZAR: 49,           // Price in ZAR
-  PRICE_DISPLAY: 'R49',    // Display string
-  WATERMARK_TEXT: 'Generated with SA Invoice Generator',
-  // localStorage keys
-  STORAGE_KEY: 'sa-invoice-unlocked',
-  LOGO_STORAGE_KEY: 'sa-invoice-logo',
-};
-```
+## Templates
 
-### How It Works
+### Free Templates
+| Template | Description |
+|----------|-------------|
+| Minimal | Clean centered layout |
+| Modern | Left-aligned with teal accents |
+| Compact | Condensed single-page layout |
 
-1. **Free users** can generate invoices and download PDFs
-2. When downloading, a small watermark appears at the bottom of the PDF
-3. Clicking "Unlock Professional Invoice" simulates payment (TODO: integrate PayFast/Stripe)
-4. After unlock, user can upload a logo and download watermark-free PDFs
-5. Unlock state and logo are stored in `localStorage`
-
-### Adding Real Payments
-
-To integrate PayFast or Stripe, edit `src/components/UpgradeModal.tsx`:
-
-```typescript
-const handleUnlock = async () => {
-  // TODO: Replace with real payment integration
-  // Example: await processPayment()
-  // On success:
-  onUnlock();
-};
-```
-
-**PayFast Integration:**
-- Use PayFast's onsite payments or redirect flow
-- On successful payment callback, call `onUnlock()`
-
-**Stripe Integration:**
-- Use Stripe Checkout or Payment Links
-- On successful payment callback, call `onUnlock()`
+### PRO Templates
+| Template | Description |
+|----------|-------------|
+| Sidebar | Two-column layout with sidebar |
+| Executive | Premium corporate layout |
+| Split | Creative two-column design |
+| Card | Modern card-based layout |
+| Luxury Minimal | Ultra-premium minimalist design |
+| Letterhead | Full-width header image support |
 
 ## Deployment
 
-### Vercel (Recommended)
+### Netlify (Recommended)
 
-1. Push your code to GitHub
-2. Import the repository on [Vercel](https://vercel.com)
-3. Deploy with default settings
-
-### Netlify
-
-1. Push your code to GitHub
+1. Push code to GitHub
 2. Connect to [Netlify](https://netlify.com)
-3. Build command: `npm run build`
-4. Publish directory: `.next`
+3. Build command: `npm run build` → Publish directory: `out`
+4. Or just push — `netlify.toml` handles the config automatically
 
-## Project Structure
+## Monetization
 
-```
-src/
-├── app/
-│   ├── layout.tsx          # SEO metadata
-│   ├── page.tsx            # Main invoice page
-│   └── globals.css         # Global styles
-├── components/
-│   ├── InvoiceForm.tsx     # Form inputs
-│   ├── InvoicePreview.tsx  # Live preview + logo support
-│   ├── LineItems.tsx       # Dynamic line items
-│   ├── DownloadPDFButton.tsx  # PDF + watermark logic
-│   ├── UpgradeModal.tsx    # Payment modal
-│   └── LogoUpload.tsx      # Logo file input
-├── hooks/
-│   └── useUnlockState.ts   # Unlock + logo localStorage hooks
-├── lib/
-│   ├── config.ts           # Monetization constants
-│   └── utils.ts            # Currency & date helpers
-└── types/
-    └── invoice.ts          # TypeScript interfaces
-```
+PRO features are unlocked via license key purchased from Gumroad.
 
 ## License
 
-MIT - Use it however you want!
+MIT — Use it however you want!
 
 ## Contributing
 
-PRs welcome! This is a simple tool meant to help SA freelancers get paid faster.
+PRs welcome! This is a simple tool meant to help people create professional invoices quickly.

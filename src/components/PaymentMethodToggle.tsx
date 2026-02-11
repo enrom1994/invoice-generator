@@ -8,28 +8,31 @@ interface PaymentMethodToggleProps {
 }
 
 export default function PaymentMethodToggle({ value, onChange }: PaymentMethodToggleProps) {
+    const methods: { value: PaymentMethod; label: string }[] = [
+        { value: 'eft', label: 'Bank' },
+        { value: 'cash', label: 'Cash' },
+        { value: 'bank_transfer', label: 'Transfer' },
+        { value: 'credit_card', label: 'Card' },
+        { value: 'paypal', label: 'PayPal' },
+        { value: 'other', label: 'Other' },
+    ];
+
     return (
-        <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg">
-            <button
-                type="button"
-                onClick={() => onChange('eft')}
-                className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${value === 'eft'
-                    ? 'bg-white text-emerald-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+        <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-lg overflow-x-auto">
+            {methods.map((method) => (
+                <button
+                    key={method.value}
+                    type="button"
+                    onClick={() => onChange(method.value)}
+                    className={`flex-shrink-0 px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                        value === method.value
+                            ? 'bg-white text-teal-600 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
                     }`}
-            >
-                🏦 EFT
-            </button>
-            <button
-                type="button"
-                onClick={() => onChange('cash')}
-                className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${value === 'cash'
-                    ? 'bg-white text-emerald-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                    }`}
-            >
-                💵 Cash
-            </button>
+                >
+                    {method.label}
+                </button>
+            ))}
         </div>
     );
 }
